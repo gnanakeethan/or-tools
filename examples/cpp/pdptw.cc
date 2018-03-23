@@ -50,7 +50,7 @@
 #include "ortools/constraint_solver/routing_enums.pb.h"
 #include "ortools/constraint_solver/routing_flags.h"
 
-DEFINE_string(pdp_file, "",
+DEFINE_string(pdp_file, "lc101.txt",
               "File containing the Pickup and Delivery Problem to solve.");
 DEFINE_int32(pdp_force_vehicles, 0,
              "Force the number of vehicles used (maximum number of routes.");
