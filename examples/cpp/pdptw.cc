@@ -110,7 +110,6 @@ std::string VerboseOutput(const RoutingModel& routing, const Assignment& assignm
   const RoutingDimension& time_dimension = routing.GetDimensionOrDie("time");
   const RoutingDimension& load_dimension = routing.GetDimensionOrDie("demand");
   for (int i = 0; i < routing.vehicles(); ++i) {
-    StringAppendF(&output, "Vehicle %d: ", i);
     int64 index = routing.Start(i);
     if (routing.IsEnd(assignment.Value(routing.NextVar(index)))) {
       output.append("empty");
@@ -119,27 +118,26 @@ std::string VerboseOutput(const RoutingModel& routing, const Assignment& assignm
         RoutingModel::NodeIndex real_node = routing.IndexToNode(index);
         StringAppendF(&output, "%d ", real_node.value());
         const IntVar* vehicle = routing.VehicleVar(index);
-        StringAppendF(&output, "Vehicle(%lld) ", assignment.Value(vehicle));
+//        StringAppendF(&output, "Vehicle(%lld) ", assignment.Value(vehicle));
         const IntVar* arrival = time_dimension.CumulVar(index);
-        StringAppendF(&output, "Time(%lld..%lld) ", assignment.Min(arrival),
-                      assignment.Max(arrival));
+//        StringAppendF(&output, "Time(%lld..%lld) ", assignment.Min(arrival),
+//                      assignment.Max(arrival));
         const IntVar* load = load_dimension.CumulVar(index);
-        StringAppendF(&output, "Load(%lld..%lld) ", assignment.Min(load),
-                      assignment.Max(load));
+//        StringAppendF(&output, "Load(%lld..%lld) ", assignment.Min(load),
+//                      assignment.Max(load));
         index = assignment.Value(routing.NextVar(index));
-        StringAppendF(&output, "Transit(%lld) ",
-                      TravelPlusServiceTime(&coords, &service_times, real_node,
-                                            routing.IndexToNode(index)));
+//        StringAppendF(&output, "Transit(%lld) \n",
+//                      TravelPlusServiceTime(&coords, &service_times, real_node,
+//                                            routing.IndexToNode(index)));
       }
-      output.append("Route end ");
       const IntVar* vehicle = routing.VehicleVar(index);
-      StringAppendF(&output, "Vehicle(%lld) ", assignment.Value(vehicle));
+//      StringAppendF(&output, "Vehicle(%lld) ", assignment.Value(vehicle));
       const IntVar* arrival = time_dimension.CumulVar(index);
-      StringAppendF(&output, "Time(%lld..%lld) ", assignment.Min(arrival),
-                    assignment.Max(arrival));
+//      StringAppendF(&output, "Time(%lld..%lld) ", assignment.Min(arrival),
+//                    assignment.Max(arrival));
       const IntVar* load = load_dimension.CumulVar(index);
-      StringAppendF(&output, "Load(%lld..%lld) ", assignment.Min(load),
-                    assignment.Max(load));
+//      StringAppendF(&output, "Load(%lld..%lld) ", assignment.Min(load),
+//                    assignment.Max(load));
     }
     output.append("\n");
   }
@@ -294,7 +292,7 @@ bool LoadAndSolve(const std::string& pdp_file) {
   LOG(INFO) << routing.solver()->LocalSearchProfile();
   if (nullptr != assignment) {
     LOG(INFO) << "Cost: " << assignment->ObjectiveValue();
-    LOG(INFO) << VerboseOutput(routing, *assignment, coords, service_times);
+    std::cout << VerboseOutput(routing, *assignment, coords, service_times);
     return true;
   }
   return false;
