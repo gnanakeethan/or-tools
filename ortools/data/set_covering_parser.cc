@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -13,10 +13,10 @@
 
 #include "ortools/data/set_covering_parser.h"
 
-#include "ortools/base/strtoint.h"
+#include "ortools/base/filelineiter.h"
 #include "ortools/base/numbers.h"
 #include "ortools/base/split.h"
-#include "ortools/base/filelineiter.h"
+#include "ortools/base/strtoint.h"
 
 namespace operations_research {
 namespace scp {
@@ -39,7 +39,8 @@ bool ScpParser::LoadProblem(const std::string& filename, Format format,
   return section_ == END;
 }
 
-void ScpParser::ProcessLine(const std::string& line, Format format, ScpData* data) {
+void ScpParser::ProcessLine(const std::string& line, Format format,
+                            ScpData* data) {
   line_++;
   const std::vector<std::string> words =
       absl::StrSplit(line, AnyOf(" :\t\r"), absl::SkipEmpty());

@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -71,7 +71,7 @@ bool CheckAllDifferentInt(
   std::unordered_set<int64> visited;
   for (int i = 0; i < Size(ct.arguments[0]); ++i) {
     const int64 value = EvalAt(ct.arguments[0], i, evaluator);
-    if (ContainsKey(visited, value)) {
+    if (gtl::ContainsKey(visited, value)) {
       return false;
     }
     visited.insert(value);
@@ -86,7 +86,7 @@ bool CheckAlldifferentExcept0(
   std::unordered_set<int64> visited;
   for (int i = 0; i < Size(ct.arguments[0]); ++i) {
     const int64 value = EvalAt(ct.arguments[0], i, evaluator);
-    if (value != 0 && ContainsKey(visited, value)) {
+    if (value != 0 && gtl::ContainsKey(visited, value)) {
       return false;
     }
     visited.insert(value);
@@ -398,12 +398,12 @@ std::vector<int64> ComputeGlobalCardinalityCards(
   std::unordered_map<int64, int> positions;
   for (int i = 0; i < ct.arguments[1].values.size(); ++i) {
     const int64 value = ct.arguments[1].values[i];
-    CHECK(!ContainsKey(positions, value));
+    CHECK(!gtl::ContainsKey(positions, value));
     positions[value] = i;
   }
   for (int i = 0; i < Size(ct.arguments[0]); ++i) {
     const int value = EvalAt(ct.arguments[0], i, evaluator);
-    if (ContainsKey(positions, value)) {
+    if (gtl::ContainsKey(positions, value)) {
       cards[positions[value]]++;
     }
   }
@@ -1033,7 +1033,7 @@ bool CheckSymmetricAllDifferent(
 
 using CallMap = std::unordered_map<
     std::string, std::function<bool(const Constraint& ct,
-                               std::function<int64(IntegerVariable*)>)>>;
+                                    std::function<int64(IntegerVariable*)>)>>;
 
 CallMap CreateCallMap() {
   CallMap m;
@@ -1163,7 +1163,7 @@ bool CheckSolution(const Model& model,
   const CallMap call_map = CreateCallMap();
   for (Constraint* ct : model.constraints()) {
     if (!ct->active) continue;
-    const auto& checker = FindOrDie(call_map, ct->type);
+    const auto& checker = gtl::FindOrDie(call_map, ct->type);
     if (!checker(*ct, evaluator)) {
       FZLOG << "Failing constraint " << ct->DebugString() << FZENDL;
       ok = false;

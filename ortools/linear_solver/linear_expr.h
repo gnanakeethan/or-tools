@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -149,7 +149,8 @@ LinearExpr operator*(double lhs, LinearExpr rhs);
 // The sum is represented as a LinearExpr with offset 0.
 //
 // Must be added to model with
-// MPSolver::AddRowConstraint(const LinearRange& range[, const std::string& name]);
+// MPSolver::AddRowConstraint(const LinearRange& range[, const std::string&
+// name]);
 class LinearRange {
  public:
   LinearRange() : lower_bound_(0), upper_bound_(0) {}

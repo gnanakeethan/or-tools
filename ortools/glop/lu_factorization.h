@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -175,6 +175,7 @@ class LuFactorization {
   // TODO(user): separate this from LuFactorization.
   Fractional ComputeOneNormConditionNumber(const MatrixView& matrix) const;
   Fractional ComputeInfinityNormConditionNumber(const MatrixView& matrix) const;
+  Fractional ComputeInverseInfinityNormUpperBound() const;
 
   // Sets the current parameters.
   void SetParameters(const GlopParameters& parameters) {

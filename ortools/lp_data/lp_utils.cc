@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -10,7 +10,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 
 #include "ortools/lp_data/lp_utils.h"
 
@@ -112,11 +111,11 @@ void RemoveNearZeroEntries(Fractional threshold, DenseColumn* column) {
 }
 
 Fractional RestrictedInfinityNorm(const SparseColumn& column,
-                                  const DenseBooleanColumn& row_to_consider,
+                                  const DenseBooleanColumn& rows_to_consider,
                                   RowIndex* row_index) {
   Fractional infinity_norm = 0.0;
   for (const SparseColumn::Entry e : column) {
-    if (row_to_consider[e.row()] && fabs(e.coefficient()) > infinity_norm) {
+    if (rows_to_consider[e.row()] && fabs(e.coefficient()) > infinity_norm) {
       infinity_norm = fabs(e.coefficient());
       *row_index = e.row();
     }

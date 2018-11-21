@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -18,8 +18,8 @@
 
 #include <memory>
 
-#include "ortools/constraint_solver/routing.h"
 #include "ortools/base/random.h"
+#include "ortools/constraint_solver/routing.h"
 
 namespace operations_research {
 
@@ -64,7 +64,7 @@ class LocationContainer {
 
   MTRandom randomizer_;
   const int64 speed_;
-  ITIVector<operations_research::RoutingModel::NodeIndex, Location> locations_;
+  gtl::ITIVector<operations_research::RoutingModel::NodeIndex, Location> locations_;
 };
 
 // Random demand.

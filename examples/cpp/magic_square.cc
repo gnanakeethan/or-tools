@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,7 +19,6 @@
 // The problem is trivial for odd orders, but not for even orders.
 // We do not handle odd orders with the trivial method here.
 
-#include "ortools/base/commandlineflags.h"
 #include "ortools/base/commandlineflags.h"
 #include "ortools/base/integral_types.h"
 #include "ortools/base/logging.h"
@@ -149,7 +148,7 @@ void MagicSquare(int grid_size) {
 }  // namespace operations_research
 
 int main(int argc, char** argv) {
-  gflags::ParseCommandLineFlags( &argc, &argv, true);
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
   if (FLAGS_size != 0) {
     operations_research::MagicSquare(FLAGS_size);
   } else {
@@ -157,5 +156,5 @@ int main(int argc, char** argv) {
       operations_research::MagicSquare(n);
     }
   }
-  return 0;
+  return EXIT_SUCCESS;
 }

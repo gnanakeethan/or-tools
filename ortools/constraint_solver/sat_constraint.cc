@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -87,8 +87,8 @@ void SatTableConstraint::Post() {
 }
 
 int BooleanVariableManager::RegisterIntVar(IntVar* int_var) {
-  const int reg_index = LookupOrInsert(&registration_index_map_, int_var,
-                                       registered_int_vars_.size());
+  const int reg_index = gtl::LookupOrInsert(&registration_index_map_, int_var,
+                                            registered_int_vars_.size());
   if (reg_index < registered_int_vars_.size()) return reg_index;
   registered_int_vars_.push_back(int_var);
 

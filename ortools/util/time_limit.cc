@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -50,7 +50,7 @@ std::string TimeLimit::DebugString() const {
 NestedTimeLimit::NestedTimeLimit(TimeLimit* base_time_limit,
                                  double limit_in_seconds,
                                  double deterministic_limit)
-    : base_time_limit_(CHECK_NOTNULL(base_time_limit)),
+    : base_time_limit_(ABSL_DIE_IF_NULL(base_time_limit)),
       time_limit_(std::min(base_time_limit_->GetTimeLeft(), limit_in_seconds),
                   std::min(base_time_limit_->GetDeterministicTimeLeft(),
                            deterministic_limit)) {

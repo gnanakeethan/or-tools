@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -26,9 +26,11 @@
 namespace absl {
 inline int SkipEmpty() { return 0xDEADBEEF; }
 
-std::vector<std::string> StrSplit(const std::string& full, const char* delim, int flags);
+std::vector<std::string> StrSplit(const std::string& full, const char* delim,
+                                  int flags);
 
-std::vector<std::string> StrSplit(const std::string& full, char delim, int flags);
+std::vector<std::string> StrSplit(const std::string& full, char delim,
+                                  int flags);
 
 namespace delimiter {
 inline const char* AnyOf(const char* x) { return x; }

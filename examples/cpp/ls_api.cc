@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -17,12 +17,12 @@
 // Search with Filter approach.
 
 #include "ortools/base/commandlineflags.h"
-#include "ortools/base/map_util.h"
-#include "ortools/base/stl_util.h"
 #include "ortools/base/hash.h"
+#include "ortools/base/map_util.h"
+#include "ortools/base/random.h"
+#include "ortools/base/stl_util.h"
 #include "ortools/constraint_solver/constraint_solver.h"
 #include "ortools/constraint_solver/constraint_solveri.h"
-#include "ortools/base/random.h"
 
 namespace operations_research {
 class OneVarLns : public BaseLns {
@@ -147,11 +147,7 @@ class SumFilter : public IntVarLocalSearchFilter {
   int64 sum_;
 };
 
-enum SolveType {
-  LNS,
-  LS,
-  LS_WITH_FILTER
-};
+enum SolveType { LNS, LS, LS_WITH_FILTER };
 
 void SolveProblem(SolveType solve_type) {
   Solver s("Sample");
@@ -201,9 +197,9 @@ void SolveProblem(SolveType solve_type) {
 }  // namespace operations_research
 
 int main(int argc, char** argv) {
-  gflags::ParseCommandLineFlags( &argc, &argv, true);
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
   operations_research::SolveProblem(operations_research::LNS);
   operations_research::SolveProblem(operations_research::LS);
   operations_research::SolveProblem(operations_research::LS_WITH_FILTER);
-  return 0;
+  return EXIT_SUCCESS;
 }

@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -92,7 +92,7 @@ void DenseConnectedComponentsFinder::AddEdge(int node1, int node2) {
 
   // Attach the shallowest tree to root of the deepest one. Note that this
   // operation grows the rank of the new common root by at most one (if the two
-  // trees origginally have the same rank).
+  // trees originally have the same rank).
   if (rank_[root1] > rank_[root2]) {
     parent_[root2] = root1;
     component_size_[root1] = component_size;

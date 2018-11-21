@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -10,7 +10,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 
 #ifndef OR_TOOLS_UTIL_MONOID_OPERATION_TREE_H_
 #define OR_TOOLS_UTIL_MONOID_OPERATION_TREE_H_
@@ -211,11 +210,12 @@ std::string MonoidOperationTree<T>::DebugString() const {
   for (int i = 0; i < num_nodes_; ++i) {
     if (((i + 1) & i) == 0) {
       // New layer
-      StringAppendF(&out, "-------------- Layer %d ---------------\n", layer);
+      absl::StrAppendFormat(&out, "-------------- Layer %d ---------------\n",
+                            layer);
       ++layer;
     }
-    StringAppendF(&out, "Position %d: %s\n", i,
-                  nodes_[i].DebugString().c_str());
+    absl::StrAppendFormat(&out, "Position %d: %s\n", i,
+                          nodes_[i].DebugString().c_str());
   }
   return out;
 }

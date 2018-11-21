@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -10,7 +10,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 
 // Utilities to display linear expression in a human-readable way.
 
@@ -28,12 +27,16 @@ namespace glop {
 
 // Returns a std::string representing a floating-point number in decimal,
 // with a precision corresponding to the type of the argument.
-inline std::string Stringify(const float a) { return StringPrintf("%.7g", a); }
+inline std::string Stringify(const float a) {
+  return absl::StrFormat("%.7g", a);
+}
 
-inline std::string Stringify(const double a) { return StringPrintf("%.16g", a); }
+inline std::string Stringify(const double a) {
+  return absl::StrFormat("%.16g", a);
+}
 
 inline std::string Stringify(const long double a) {
-  return StringPrintf("%.19Lg", a);
+  return absl::StrFormat("%.19g", a);
 }
 
 // Returns a std::string "num/den" representing the rational approximation of x.
@@ -51,7 +54,8 @@ std::string Stringify(const Fractional x, bool fraction);
 // taking care of the sign of x, whether a is 0, 1, -1, integer. Note that the
 // absolute difference between the output fraction and "x" will never exceed
 // std::numeric_limits<T>::epsilon().
-std::string StringifyMonomial(const Fractional a, const std::string& x, bool fraction);
+std::string StringifyMonomial(const Fractional a, const std::string& x,
+                              bool fraction);
 
 }  // namespace glop
 }  // namespace operations_research

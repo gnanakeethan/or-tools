@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -13,8 +13,8 @@
 
 #include "ortools/flatzinc/solver_util.h"
 
-#include "ortools/base/stringprintf.h"
 #include "ortools/base/join.h"
+#include "ortools/base/stringprintf.h"
 #include "ortools/flatzinc/logging.h"
 
 namespace operations_research {
@@ -189,13 +189,13 @@ std::string MemoryUsage() {
   static const int64 kGigaByte = kMegaByte * kKiloByte;
   const int64 memory_usage = operations_research::Solver::MemoryUsage();
   if (memory_usage > kDisplayThreshold * kGigaByte) {
-    return StringPrintf("%.2lf GB", memory_usage * 1.0 / kGigaByte);
+    return absl::StrFormat("%.2f GB", memory_usage * 1.0 / kGigaByte);
   } else if (memory_usage > kDisplayThreshold * kMegaByte) {
-    return StringPrintf("%.2lf MB", memory_usage * 1.0 / kMegaByte);
+    return absl::StrFormat("%.2f MB", memory_usage * 1.0 / kMegaByte);
   } else if (memory_usage > kDisplayThreshold * kKiloByte) {
-    return StringPrintf("%2lf KB", memory_usage * 1.0 / kKiloByte);
+    return absl::StrFormat("%2f KB", memory_usage * 1.0 / kKiloByte);
   } else {
-    return StrCat(memory_usage);
+    return absl::StrCat(memory_usage);
   }
 }
 

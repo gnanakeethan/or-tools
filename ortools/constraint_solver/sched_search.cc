@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -10,7 +10,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 
 #include <cstring>
 #include <string>
@@ -37,7 +36,8 @@ int64 IndexToValue(int64 index) { return index + 1; }
 
 SequenceVar::SequenceVar(Solver* const s,
                          const std::vector<IntervalVar*>& intervals,
-                         const std::vector<IntVar*>& nexts, const std::string& name)
+                         const std::vector<IntVar*>& nexts,
+                         const std::string& name)
     : PropagationBaseObject(s),
       intervals_(intervals),
       nexts_(nexts),
@@ -131,7 +131,7 @@ void SequenceVar::ActiveHorizonRange(int64* const hmin,
   int64 hor_min = kint64max;
   int64 hor_max = kint64min;
   for (int i = 0; i < intervals_.size(); ++i) {
-    if (!ContainsKey(decided, i)) {
+    if (!gtl::ContainsKey(decided, i)) {
       IntervalVar* const t = intervals_[i];
       hor_min = std::min(hor_min, t->StartMin());
       hor_max = std::max(hor_max, t->EndMax());

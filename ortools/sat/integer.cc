@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,7 +19,6 @@
 
 #include "ortools/base/iterator_adaptors.h"
 #include "ortools/base/stl_util.h"
-#include "ortools/sat/sat_parameters.pb.h"
 #include "ortools/util/time_limit.h"
 
 namespace operations_research {
@@ -57,7 +56,7 @@ void IntegerEncoder::FullyEncodeVariable(IntegerVariable var) {
   } else {
     for (int i = 0; i < values.size(); ++i) {
       const std::pair<IntegerVariable, IntegerValue> key{var, values[i]};
-      if (ContainsKey(equality_to_associated_literal_, key)) {
+      if (gtl::ContainsKey(equality_to_associated_literal_, key)) {
         literals.push_back(equality_to_associated_literal_[key]);
       } else {
         literals.push_back(Literal(sat_solver_->NewBooleanVariable(), true));
@@ -100,7 +99,7 @@ void IntegerEncoder::FullyEncodeVariable(IntegerVariable var) {
     AssociateToIntegerEqualValue(literals[i], var, values[i]);
   }
 
-  // Mark var and of Negation(var) as fully encoded.
+  // Mark var and Negation(var) as fully encoded.
   const int required_size = std::max(var, NegationOf(var)).value() + 1;
   if (required_size > is_fully_encoded_.size()) {
     is_fully_encoded_.resize(required_size, false);
@@ -117,7 +116,7 @@ IntegerEncoder::FullDomainEncoding(IntegerVariable var) const {
     for (IntegerValue value(interval.start); value <= interval.end; ++value) {
       const std::pair<IntegerVariable, IntegerValue> key{var, value};
       const Literal literal =
-          FindOrDieNoPrint(equality_to_associated_literal_, key);
+          gtl::FindOrDieNoPrint(equality_to_associated_literal_, key);
       if (sat_solver_->Assignment().LiteralIsTrue(literal)) {
         return {{value, literal}};
       } else if (!sat_solver_->Assignment().LiteralIsFalse(literal)) {
@@ -160,39 +159,42 @@ IntegerEncoder::PartialDomainEncoding(IntegerVariable var) const {
 // Note that by not inserting the literal in "order" we can in the worst case
 // use twice as much implication (2 by literals) instead of only one between
 // consecutive literals.
-void IntegerEncoder::AddImplications(IntegerLiteral i_lit, Literal literal) {
+void IntegerEncoder::AddImplications(IntegerLiteral i_lit,
+                                     Literal associated_lit) {
   if (i_lit.var >= encoding_by_var_.size()) {
     encoding_by_var_.resize(i_lit.var.value() + 1);
   }
 
   std::map<IntegerValue, Literal>& map_ref =
       encoding_by_var_[IntegerVariable(i_lit.var)];
-  CHECK(!ContainsKey(map_ref, i_lit.bound));
+  CHECK(!gtl::ContainsKey(map_ref, i_lit.bound));
 
   if (add_implications_) {
     auto after_it = map_ref.lower_bound(i_lit.bound);
     if (after_it != map_ref.end()) {
-      // Literal(after) => literal
+      // Literal(after) => associated_lit
       if (sat_solver_->CurrentDecisionLevel() == 0) {
-        sat_solver_->AddBinaryClause(after_it->second.Negated(), literal);
+        sat_solver_->AddBinaryClause(after_it->second.Negated(),
+                                     associated_lit);
       } else {
         sat_solver_->AddBinaryClauseDuringSearch(after_it->second.Negated(),
-                                                 literal);
+                                                 associated_lit);
       }
     }
     if (after_it != map_ref.begin()) {
-      // literal => Literal(before)
+      // associated_lit => Literal(before)
       if (sat_solver_->CurrentDecisionLevel() == 0) {
-        sat_solver_->AddBinaryClause(literal.Negated(), (--after_it)->second);
+        sat_solver_->AddBinaryClause(associated_lit.Negated(),
+                                     (--after_it)->second);
       } else {
-        sat_solver_->AddBinaryClauseDuringSearch(literal.Negated(),
+        sat_solver_->AddBinaryClauseDuringSearch(associated_lit.Negated(),
                                                  (--after_it)->second);
       }
     }
   }
 
   // Add the new entry.
-  map_ref[i_lit.bound] = literal;
+  map_ref[i_lit.bound] = associated_lit;
 }
 
 void IntegerEncoder::AddAllImplicationsBetweenAssociatedLiterals() {
@@ -230,12 +232,20 @@ std::pair<IntegerLiteral, IntegerLiteral> IntegerEncoder::Canonicalize(
 }
 
 Literal IntegerEncoder::GetOrCreateAssociatedLiteral(IntegerLiteral i_lit) {
-  const IntegerLiteral new_lit = Canonicalize(i_lit).first;
-  if (new_lit.var < encoding_by_var_.size()) {
-    const std::map<IntegerValue, Literal>& encoding =
-        encoding_by_var_[new_lit.var];
-    const auto it = encoding.find(new_lit.bound);
-    if (it != encoding.end()) return it->second;
+  if (i_lit.bound <= (*domains_)[i_lit.var].front().start) {
+    return GetTrueLiteral();
+  }
+  if (i_lit.bound > (*domains_)[i_lit.var].back().end) {
+    return GetFalseLiteral();
+  }
+
+  const auto canonicalization = Canonicalize(i_lit);
+  const IntegerLiteral new_lit = canonicalization.first;
+  if (LiteralIsAssociated(new_lit)) {
+    return Literal(GetAssociatedLiteral(new_lit));
+  }
+  if (LiteralIsAssociated(canonicalization.second)) {
+    return Literal(GetAssociatedLiteral(canonicalization.second)).Negated();
   }
 
   ++num_created_variables_;
@@ -262,7 +272,6 @@ Literal IntegerEncoder::GetOrCreateLiteralAssociatedToEquality(
 
 void IntegerEncoder::AssociateToIntegerLiteral(Literal literal,
                                                IntegerLiteral i_lit) {
-  CHECK(!sat_solver_->Assignment().LiteralIsAssigned(literal));
   const auto& domain = (*domains_)[i_lit.var];
   const IntegerValue min(domain.front().start);
   const IntegerValue max(domain.back().end);
@@ -290,11 +299,33 @@ void IntegerEncoder::AssociateToIntegerLiteral(Literal literal,
 void IntegerEncoder::AssociateToIntegerEqualValue(Literal literal,
                                                   IntegerVariable var,
                                                   IntegerValue value) {
+  // Detect literal view. Note that the same literal can be associated to more
+  // than one variable, and thus already have a view. We don't change it in
+  // this case.
+  const Domain domain = Domain::FromIntervals((*domains_)[var]);
+  if (value == 1 && domain.Min() >= 0 && domain.Max() <= 1) {
+    if (literal.Index() >= literal_view_.size()) {
+      literal_view_.resize(literal.Index().value() + 1, kNoIntegerVariable);
+      literal_view_[literal.Index()] = var;
+    } else if (literal_view_[literal.Index()] == kNoIntegerVariable) {
+      literal_view_[literal.Index()] = var;
+    }
+  }
+  if (value == -1 && domain.Min() >= -1 && domain.Max() <= 0) {
+    if (literal.Index() >= literal_view_.size()) {
+      literal_view_.resize(literal.Index().value() + 1, kNoIntegerVariable);
+      literal_view_[literal.Index()] = NegationOf(var);
+    } else if (literal_view_[literal.Index()] == kNoIntegerVariable) {
+      literal_view_[literal.Index()] = NegationOf(var);
+    }
+  }
+
   const std::pair<IntegerVariable, IntegerValue> key{var, value};
-  if (ContainsKey(equality_to_associated_literal_, key)) {
+  if (gtl::ContainsKey(equality_to_associated_literal_, key)) {
     // If this key is already associated, make the two literals equal.
     const Literal representative = equality_to_associated_literal_[key];
     if (representative != literal) {
+      DCHECK_EQ(sat_solver_->CurrentDecisionLevel(), 0);
       sat_solver_->AddBinaryClause(literal, representative.Negated());
       sat_solver_->AddBinaryClause(literal.Negated(), representative);
     }
@@ -303,43 +334,18 @@ void IntegerEncoder::AssociateToIntegerEqualValue(Literal literal,
   equality_to_associated_literal_[key] = literal;
   equality_to_associated_literal_[{NegationOf(var), -value}] = literal;
 
-  // Detect literal view. Note that the same literal can be associated to more
-  // than one variable, and thus already have a view. We don't change it in
-  // this case.
-  const auto& domain = (*domains_)[var];
-  if (value == 1 && domain.front().start >= 0 && domain.back().end <= 1) {
-    if (literal.Index() >= literal_view_.size()) {
-      literal_view_.resize(literal.Index().value() + 1, kNoIntegerVariable);
-      literal_view_[literal.Index()] = var;
-    } else if (literal_view_[literal.Index()] == kNoIntegerVariable) {
-      literal_view_[literal.Index()] = var;
-    }
-  }
-  if (value == -1 && domain.front().start >= -1 && domain.back().end <= 0) {
-    if (literal.Index() >= literal_view_.size()) {
-      literal_view_.resize(literal.Index().value() + 1, kNoIntegerVariable);
-      literal_view_[literal.Index()] = NegationOf(var);
-    } else if (literal_view_[literal.Index()] == kNoIntegerVariable) {
-      literal_view_[literal.Index()] = NegationOf(var);
-    }
-  }
-
   // Fix literal for value outside the domain or for singleton domain.
-  if (!SortedDisjointIntervalsContain(domain, value.value())) {
+  if (!domain.Contains(value.value())) {
     sat_solver_->AddUnitClause(literal.Negated());
     return;
   }
-  if (value == domain.front().start && value == domain.back().end) {
+  if (value == domain.Min() && value == domain.Max()) {
     sat_solver_->AddUnitClause(literal);
     return;
   }
 
-  // If the literal was already assigned before beeing associated, we may
-  // not propagate properly the update to the variable domain.
-  CHECK(!sat_solver_->Assignment().LiteralIsAssigned(literal));
-
   // Special case for the first and last value.
-  if (value == domain.front().start) {
+  if (value == domain.Min()) {
     // Note that this will recursively call AssociateToIntegerEqualValue() but
     // since equality_to_associated_literal_[] is now set, the recursion will
     // stop there. When a domain has just 2 values, this allows to call just
@@ -349,7 +355,7 @@ void IntegerEncoder::AssociateToIntegerEqualValue(Literal literal,
                               IntegerLiteral::LowerOrEqual(var, value));
     return;
   }
-  if (value == domain.back().end) {
+  if (value == domain.Max()) {
     AssociateToIntegerLiteral(literal,
                               IntegerLiteral::GreaterOrEqual(var, value));
     return;
@@ -371,8 +377,6 @@ void IntegerEncoder::AssociateToIntegerEqualValue(Literal literal,
 // of the optional variables is true.
 void IntegerEncoder::HalfAssociateGivenLiteral(IntegerLiteral i_lit,
                                                Literal literal) {
-  CHECK(!sat_solver_->Assignment().LiteralIsAssigned(literal));
-
   // Resize reverse encoding.
   const int new_size = 1 + literal.Index().value();
   if (new_size > reverse_encoding_.size()) reverse_encoding_.resize(new_size);
@@ -380,10 +384,15 @@ void IntegerEncoder::HalfAssociateGivenLiteral(IntegerLiteral i_lit,
   // Associate the new literal to i_lit.
   if (!LiteralIsAssociated(i_lit)) {
     AddImplications(i_lit, literal);
+    if (sat_solver_->Assignment().LiteralIsTrue(literal)) {
+      CHECK_EQ(sat_solver_->CurrentDecisionLevel(), 0);
+      newly_fixed_integer_literals_.push_back(i_lit);
+    }
     reverse_encoding_[literal.Index()].push_back(i_lit);
   } else {
     const Literal associated(GetAssociatedLiteral(i_lit));
     if (associated != literal) {
+      DCHECK_EQ(sat_solver_->CurrentDecisionLevel(), 0);
       sat_solver_->AddBinaryClause(literal, associated.Negated());
       sat_solver_->AddBinaryClause(literal.Negated(), associated);
     }
@@ -432,6 +441,22 @@ bool IntegerTrail::Propagate(Trail* trail) {
   // This is used to map any integer literal out of the initial variable domain
   // into one that use one of the domain value.
   var_to_current_lb_interval_index_.SetLevel(level);
+
+  // This is required because when loading a model it is possible that we add
+  // (literal <-> integer literal) associations for literals that have already
+  // been propagated here. This often happens when the presolve is off
+  // and many variables are fixed.
+  //
+  // TODO(user): refactor the interaction IntegerTrail <-> IntegerEncoder so
+  // that we can just push right away such literal. Unfortunately, this is is
+  // a big chunck of work.
+  if (level == 0) {
+    for (const IntegerLiteral i_lit : encoder_->NewlyFixedIntegerLiterals()) {
+      if (IsCurrentlyIgnored(i_lit.var)) continue;
+      if (!Enqueue(i_lit, {}, {})) return false;
+    }
+    encoder_->ClearNewlyFixedIntegerLiterals();
+  }
 
   // Process all the "associated" literals and Enqueue() the corresponding
   // bounds.
@@ -515,104 +540,76 @@ IntegerVariable IntegerTrail::AddIntegerVariable(IntegerValue lower_bound,
   return i;
 }
 
-IntegerVariable IntegerTrail::AddIntegerVariable(
-    const std::vector<ClosedInterval>& domain) {
-  CHECK(!domain.empty());
-  CHECK(IntervalsAreSortedAndDisjoint(domain));
-  const IntegerVariable var = AddIntegerVariable(
-      IntegerValue(domain.front().start), IntegerValue(domain.back().end));
+IntegerVariable IntegerTrail::AddIntegerVariable(const Domain& domain) {
+  CHECK(!domain.IsEmpty());
+  const IntegerVariable var = AddIntegerVariable(IntegerValue(domain.Min()),
+                                                 IntegerValue(domain.Max()));
   CHECK(UpdateInitialDomain(var, domain));
   return var;
 }
 
+// Because we use InlinedVectors internally, we need the conversion.
+//
 // TODO(user): we could return a reference, but this is likely not in any
 // critical code path.
-std::vector<ClosedInterval> IntegerTrail::InitialVariableDomain(
-    IntegerVariable var) const {
-  const int interval_index =
-      FindWithDefault(var_to_current_lb_interval_index_, var, -1);
-  if (interval_index >= 0) {
-    return std::vector<ClosedInterval>(
-        &all_intervals_[interval_index],
-        &all_intervals_[FindOrDie(var_to_end_interval_index_, var)]);
-  } else {
-    std::vector<ClosedInterval> result;
-    result.push_back({LevelZeroBound(var).value(),
-                      -LevelZeroBound(NegationOf(var)).value()});
-    return result;
-  }
+Domain IntegerTrail::InitialVariableDomain(IntegerVariable var) const {
+  return Domain::FromIntervals((*domains_)[var]);
 }
 
-bool IntegerTrail::UpdateInitialDomain(IntegerVariable var,
-                                       std::vector<ClosedInterval> domain) {
+bool IntegerTrail::UpdateInitialDomain(IntegerVariable var, Domain domain) {
+  CHECK_EQ(trail_->CurrentDecisionLevel(), 0);
+
   // TODO(user): A bit inefficient as this recreate a vector for no reason.
-  const std::vector<ClosedInterval> old_domain = InitialVariableDomain(var);
+  // The IntersectionOfSortedDisjointIntervals() should take a Span<> instead.
+  const Domain old_domain = InitialVariableDomain(var);
+  domain = domain.IntersectionWith(old_domain);
   if (old_domain == domain) return true;
+  if (domain.IsEmpty()) return false;
 
-  domain = IntersectionOfSortedDisjointIntervals(domain, old_domain);
-  if (domain.empty()) return false;
-
-  // TODO(user): we currently keep the domain in domains_ but also in
-  // all_intervals_ for domains with holes. Try to consolidate both structures.
-  (*domains_)[var].assign(domain.begin(), domain.end());
   {
-    std::vector<ClosedInterval> temp =
-        NegationOfSortedDisjointIntervals(domain);
+    const std::vector<ClosedInterval> temp = domain.intervals();
+    (*domains_)[var].assign(temp.begin(), temp.end());
+  }
+  {
+    const std::vector<ClosedInterval> temp = domain.Negation().intervals();
     (*domains_)[NegationOf(var)].assign(temp.begin(), temp.end());
   }
 
-  CHECK(Enqueue(
-      IntegerLiteral::GreaterOrEqual(var, IntegerValue(domain.front().start)),
-      {}, {}));
-  CHECK(Enqueue(
-      IntegerLiteral::LowerOrEqual(var, IntegerValue(domain.back().end)), {},
-      {}));
-
-  // TODO(user): reuse the memory if possible.
-  if (ContainsKey(var_to_current_lb_interval_index_, var)) {
-    var_to_current_lb_interval_index_.EraseOrDie(var);
-    var_to_end_interval_index_.erase(var);
-    var_to_current_lb_interval_index_.EraseOrDie(NegationOf(var));
-    var_to_end_interval_index_.erase(NegationOf(var));
-  }
-  if (domain.size() > 1) {
-    var_to_current_lb_interval_index_.Set(var, all_intervals_.size());
-    for (const ClosedInterval interval : domain) {
-      all_intervals_.push_back(interval);
-    }
-    InsertOrDie(&var_to_end_interval_index_, var, all_intervals_.size());
-
-    // Copy for the negated variable.
-    var_to_current_lb_interval_index_.Set(NegationOf(var),
-                                          all_intervals_.size());
-    for (const ClosedInterval interval : ::gtl::reversed_view(domain)) {
-      all_intervals_.push_back({-interval.end, -interval.start});
-    }
-    InsertOrDie(&var_to_end_interval_index_, NegationOf(var),
-                all_intervals_.size());
+  if (domain.intervals().size() > 1) {
+    var_to_current_lb_interval_index_.Set(var, 0);
+    var_to_current_lb_interval_index_.Set(NegationOf(var), 0);
   }
 
-  // If the variable is fully encoded, set to false excluded literals.
-  if (encoder_->VariableIsFullyEncoded(var)) {
-    int i = 0;
-    int num_fixed = 0;
-    const auto encoding = encoder_->FullDomainEncoding(var);
-    for (const auto pair : encoding) {
-      while (i < domain.size() && pair.value > domain[i].end) ++i;
-      if (i == domain.size() || pair.value < domain[i].start) {
-        // Set the literal to false;
-        ++num_fixed;
-        if (trail_->Assignment().LiteralIsTrue(pair.literal)) return false;
-        if (!trail_->Assignment().LiteralIsFalse(pair.literal)) {
-          trail_->EnqueueWithUnitReason(pair.literal.Negated());
-        }
+  // TODO(user): That works, but it might be better to simply update the
+  // bounds here directly. This is because these function might call again
+  // UpdateInitialDomain(), and we will abort after realizing that the domain
+  // didn't change this time.
+  CHECK(Enqueue(IntegerLiteral::GreaterOrEqual(var, IntegerValue(domain.Min())),
+                {}, {}));
+  CHECK(Enqueue(IntegerLiteral::LowerOrEqual(var, IntegerValue(domain.Max())),
+                {}, {}));
+
+  // Set to false excluded literals.
+  int i = 0;
+  int num_fixed = 0;
+  const auto encoding = encoder_->PartialDomainEncoding(var);
+  const auto intervals = domain.intervals();
+  for (const auto pair : encoding) {
+    while (i < intervals.size() && pair.value > intervals[i].end) ++i;
+    if (i == intervals.size() || pair.value < intervals[i].start) {
+      // Set the literal to false;
+      ++num_fixed;
+      if (trail_->Assignment().LiteralIsTrue(pair.literal)) return false;
+      if (!trail_->Assignment().LiteralIsFalse(pair.literal)) {
+        trail_->EnqueueWithUnitReason(pair.literal.Negated());
       }
     }
-    if (num_fixed > 0) {
-      VLOG(1) << "Domain intersection removed " << num_fixed << " values "
-              << "(out of " << encoding.size() << ").";
-    }
   }
+  if (num_fixed > 0) {
+    VLOG(1) << "Domain intersection removed " << num_fixed << " values "
+            << "(out of " << encoding.size() << ").";
+  }
+
   return true;
 }
 
@@ -622,7 +619,11 @@ IntegerVariable IntegerTrail::GetOrCreateConstantIntegerVariable(
   if (insert.second) {  // new element.
     const IntegerVariable new_var = AddIntegerVariable(value, value);
     insert.first->second = new_var;
-    if (value != 0) InsertOrDie(&constant_map_, -value, NegationOf(new_var));
+    if (value != 0) {
+      // Note that this might invalidate insert.first->second.
+      gtl::InsertOrDie(&constant_map_, -value, NegationOf(new_var));
+    }
+    return new_var;
   }
   return insert.first->second;
 }
@@ -668,6 +669,59 @@ int IntegerTrail::FindLowestTrailIndexThatExplainBound(
     prev_trail_index = trail_index;
     trail_index = entry.prev_trail_index;
   }
+}
+
+// We try to relax the reason in a smart way here by minimizing the maximum
+// trail indices of the literals appearing in reason.
+//
+// TODO(user): use priority queue instead of O(n^2) algo.
+void IntegerTrail::RelaxLinearReason(
+    IntegerValue slack, absl::Span<IntegerValue> coeffs,
+    std::vector<IntegerLiteral>* reason) const {
+  CHECK_GE(slack, 0);
+  if (slack == 0) return;
+  const int size = reason->size();
+  std::vector<int> indices(size);
+  for (int i = 0; i < size; ++i) {
+    CHECK_EQ((*reason)[i].bound, LowerBound((*reason)[i].var));
+    CHECK_GE(coeffs[i], 0);
+    indices[i] = vars_[(*reason)[i].var].current_trail_index;
+  }
+
+  const int num_vars = vars_.size();
+  while (slack != 0) {
+    int best_i = -1;
+    for (int i = 0; i < size; ++i) {
+      if (indices[i] < num_vars) continue;  // level zero.
+      if (best_i != -1 && indices[i] < indices[best_i]) continue;
+      const TrailEntry& entry = integer_trail_[indices[i]];
+      const TrailEntry& previous_entry = integer_trail_[entry.prev_trail_index];
+
+      // Note that both terms of the product are positive.
+      if (CapProd(coeffs[i].value(),
+                  (entry.bound - previous_entry.bound).value()) > slack) {
+        continue;
+      }
+      best_i = i;
+    }
+    if (best_i == -1) return;
+
+    const TrailEntry& entry = integer_trail_[indices[best_i]];
+    const TrailEntry& previous_entry = integer_trail_[entry.prev_trail_index];
+    indices[best_i] = entry.prev_trail_index;
+    (*reason)[best_i].bound = previous_entry.bound;
+    slack -= coeffs[best_i] * (entry.bound - previous_entry.bound);
+  }
+}
+
+void IntegerTrail::RemoveLevelZeroBounds(
+    std::vector<IntegerLiteral>* reason) const {
+  int new_size = 0;
+  for (const IntegerLiteral literal : *reason) {
+    if (literal.bound <= LevelZeroBound(literal.var)) continue;
+    (*reason)[new_size++] = literal;
+  }
+  reason->resize(new_size);
 }
 
 bool IntegerTrail::EnqueueAssociatedLiteral(
@@ -723,7 +777,7 @@ bool IntegerTrail::EnqueueAssociatedLiteral(
 namespace {
 
 std::string ReasonDebugString(absl::Span<Literal> literal_reason,
-                         absl::Span<IntegerLiteral> integer_reason) {
+                              absl::Span<IntegerLiteral> integer_reason) {
   std::string result = "literals:{";
   for (const Literal l : literal_reason) {
     if (result.back() != '{') result += ",";
@@ -765,11 +819,37 @@ bool IntegerTrail::Enqueue(IntegerLiteral i_lit,
   return Enqueue(i_lit, literal_reason, integer_reason, integer_trail_.size());
 }
 
+bool IntegerTrail::ReasonIsValid(absl::Span<Literal> literal_reason,
+                                 absl::Span<IntegerLiteral> integer_reason) {
+  const VariablesAssignment& assignment = trail_->Assignment();
+  for (const Literal lit : literal_reason) {
+    if (!assignment.LiteralIsFalse(lit)) return false;
+  }
+  for (const IntegerLiteral i_lit : integer_reason) {
+    if (i_lit.bound > vars_[i_lit.var].current_bound) {
+      if (IsOptional(i_lit.var)) {
+        const Literal is_ignored = IsIgnoredLiteral(i_lit.var);
+        LOG(INFO) << "Reason " << i_lit << " is not true!"
+                  << " optional variable:" << i_lit.var
+                  << " present:" << assignment.LiteralIsFalse(is_ignored)
+                  << " absent:" << assignment.LiteralIsTrue(is_ignored)
+                  << " current_lb:" << vars_[i_lit.var].current_bound;
+      } else {
+        LOG(INFO) << "Reason " << i_lit << " is not true!"
+                  << " non-optional variable:" << i_lit.var
+                  << " current_lb:" << vars_[i_lit.var].current_bound;
+      }
+      return false;
+    }
+  }
+  return true;
+}
+
 bool IntegerTrail::Enqueue(IntegerLiteral i_lit,
                            absl::Span<Literal> literal_reason,
                            absl::Span<IntegerLiteral> integer_reason,
                            int trail_index_with_same_reason) {
-  DCHECK(AllLiteralsAreFalse(literal_reason));
+  DCHECK(ReasonIsValid(literal_reason, integer_reason));
 
   // No point doing work if the variable is already ignored.
   if (IsCurrentlyIgnored(i_lit.var)) return true;
@@ -800,22 +880,18 @@ bool IntegerTrail::Enqueue(IntegerLiteral i_lit,
   //
   // Note: The literals in the reason are not necessarily canonical, but then
   // we always map these to enqueued literals during conflict resolution.
-  {
-    int interval_index =
-        FindWithDefault(var_to_current_lb_interval_index_, var, -1);
-    if (interval_index >= 0) {
-      const int end_index = FindOrDie(var_to_end_interval_index_, var);
-      while (interval_index < end_index &&
-             i_lit.bound > all_intervals_[interval_index].end) {
-        ++interval_index;
-      }
-      if (interval_index == end_index) {
-        return ReportConflict(literal_reason, integer_reason);
-      } else {
-        var_to_current_lb_interval_index_.Set(var, interval_index);
-        i_lit.bound = std::max(
-            i_lit.bound, IntegerValue(all_intervals_[interval_index].start));
-      }
+  if ((*domains_)[var].size() > 1) {
+    const auto& domain = (*domains_)[var];
+    int index = var_to_current_lb_interval_index_.FindOrDie(var);
+    const int size = domain.size();
+    while (index < size && i_lit.bound > domain[index].end) {
+      ++index;
+    }
+    if (index == size) {
+      return ReportConflict(literal_reason, integer_reason);
+    } else {
+      var_to_current_lb_interval_index_.Set(var, index);
+      i_lit.bound = std::max(i_lit.bound, IntegerValue(domain[index].start));
     }
   }
 
@@ -854,9 +930,9 @@ bool IntegerTrail::Enqueue(IntegerLiteral i_lit,
       return false;
     } else {
       // Note(user): We never make the bound of an optional literal cross. We
-      // used to have a bug where we propagated these bound and their associated
-      // literal, and we where reaching a conflict while propagating the
-      // associated literal instead of setting is_ignored below to false.
+      // used to have a bug where we propagated these bounds and their
+      // associated literals, and we were reaching a conflict while propagating
+      // the associated literal instead of setting is_ignored below to false.
       const Literal is_ignored = Literal(is_ignored_literals_[var]);
       if (integer_search_levels_.empty()) {
         trail_->EnqueueWithUnitReason(is_ignored);
@@ -895,8 +971,15 @@ bool IntegerTrail::Enqueue(IntegerLiteral i_lit,
   if (integer_search_levels_.empty()) {
     vars_[i_lit.var].current_bound = i_lit.bound;
     integer_trail_[i_lit.var.value()].bound = i_lit.bound;
-    return true;
+
+    // We also update the initial domain. If this fail, since we are at level
+    // zero, we don't care about the reason.
+    trail_->MutableConflict()->clear();
+    return UpdateInitialDomain(
+        i_lit.var,
+        Domain(LowerBound(i_lit.var).value(), UpperBound(i_lit.var).value()));
   }
+  DCHECK_GT(trail_->CurrentDecisionLevel(), 0);
 
   int reason_index = literals_reason_starts_.size();
   if (trail_index_with_same_reason >= integer_trail_.size()) {
@@ -943,7 +1026,7 @@ IntegerTrail::Dependencies(int trail_index) const {
     //
     // To detect if we already did the computation, we store the negated index.
     // Note that we will redo the computation in the corner case where all the
-    // given IntegerLiteral turn out to be assigned at level zero.
+    // given IntegerLiterals turn out to be assigned at level zero.
     //
     // TODO(user): We could check that the same IntegerVariable never appear
     // twice. And if it does the one with the lowest bound could be removed.
@@ -965,27 +1048,23 @@ IntegerTrail::Dependencies(int trail_index) const {
 void IntegerTrail::AppendLiteralsReason(int trail_index,
                                         std::vector<Literal>* output) const {
   const int reason_index = integer_trail_[trail_index].reason_index;
-  output->insert(
-      output->end(),
-      literals_reason_buffer_.begin() + literals_reason_starts_[reason_index],
-      reason_index + 1 < literals_reason_starts_.size()
-          ? literals_reason_buffer_.begin() +
-                literals_reason_starts_[reason_index + 1]
-          : literals_reason_buffer_.end());
+  const int start = literals_reason_starts_[reason_index];
+  const int end = reason_index + 1 < literals_reason_starts_.size()
+                      ? literals_reason_starts_[reason_index + 1]
+                      : literals_reason_buffer_.size();
+  for (int i = start; i < end; ++i) {
+    const Literal l = literals_reason_buffer_[i];
+    if (!added_variables_[l.Variable()]) {
+      added_variables_.Set(l.Variable());
+      output->push_back(l);
+    }
+  }
 }
 
 std::vector<Literal> IntegerTrail::ReasonFor(IntegerLiteral literal) const {
   std::vector<Literal> reason;
   MergeReasonInto({literal}, &reason);
   return reason;
-}
-
-bool IntegerTrail::AllLiteralsAreFalse(
-    absl::Span<Literal> literals) const {
-  for (const Literal lit : literals) {
-    if (!trail_->Assignment().LiteralIsFalse(lit)) return false;
-  }
-  return true;
 }
 
 // TODO(user): If this is called many time on the same variables, it could be
@@ -1013,6 +1092,11 @@ void IntegerTrail::MergeReasonIntoInternal(std::vector<Literal>* output) const {
   DCHECK(std::all_of(tmp_var_to_trail_index_in_queue_.begin(),
                      tmp_var_to_trail_index_in_queue_.end(),
                      [](int v) { return v == 0; }));
+
+  added_variables_.ClearAndResize(BooleanVariable(trail_->NumVariables()));
+  for (const Literal l : *output) {
+    added_variables_.Set(l.Variable());
+  }
 
   // During the algorithm execution, all the queue entries that do not match the
   // content of tmp_var_to_trail_index_in_queue_[] will be ignored.
@@ -1108,13 +1192,13 @@ void IntegerTrail::MergeReasonIntoInternal(std::vector<Literal>* output) const {
   for (const IntegerVariable var : tmp_to_clear_) {
     tmp_var_to_trail_index_in_queue_[var] = 0;
   }
-  STLSortAndRemoveDuplicates(output);
 }
 
 absl::Span<Literal> IntegerTrail::Reason(const Trail& trail,
-                                               int trail_index) const {
+                                         int trail_index) const {
   const int index = boolean_trail_index_to_integer_one_[trail_index];
   std::vector<Literal>* reason = trail.GetEmptyVectorToStoreReason(trail_index);
+  added_variables_.ClearAndResize(BooleanVariable(trail_->NumVariables()));
   AppendLiteralsReason(index, reason);
   DCHECK(tmp_queue_.empty());
   for (const IntegerLiteral lit : Dependencies(index)) {
@@ -1127,10 +1211,11 @@ absl::Span<Literal> IntegerTrail::Reason(const Trail& trail,
   return *reason;
 }
 
-void IntegerTrail::EnqueueLiteral(
-    Literal literal, absl::Span<Literal> literal_reason,
-    absl::Span<IntegerLiteral> integer_reason) {
-  DCHECK(AllLiteralsAreFalse(literal_reason));
+void IntegerTrail::EnqueueLiteral(Literal literal,
+                                  absl::Span<Literal> literal_reason,
+                                  absl::Span<IntegerLiteral> integer_reason) {
+  DCHECK(!trail_->Assignment().LiteralIsAssigned(literal));
+  DCHECK(ReasonIsValid(literal_reason, integer_reason));
   if (integer_search_levels_.empty()) {
     // Level zero. We don't keep any reason.
     trail_->EnqueueWithUnitReason(literal);
@@ -1165,6 +1250,20 @@ void IntegerTrail::EnqueueLiteral(
   bounds_reason_buffer_.insert(bounds_reason_buffer_.end(),
                                integer_reason.begin(), integer_reason.end());
   trail_->Enqueue(literal, propagator_id_);
+}
+
+// TODO(user): Implement a dense version if there is more trail entries
+// than variables!
+void IntegerTrail::AppendNewBounds(std::vector<IntegerLiteral>* output) const {
+  tmp_marked_.ClearAndResize(IntegerVariable(vars_.size()));
+  for (int i = vars_.size(); i < integer_trail_.size(); ++i) {
+    const TrailEntry& entry = integer_trail_[i];
+    if (entry.var == kNoIntegerVariable) continue;
+    if (tmp_marked_[entry.var]) continue;
+
+    tmp_marked_.Set(entry.var);
+    output->push_back(IntegerLiteral::GreaterOrEqual(entry.var, entry.bound));
+  }
 }
 
 GenericLiteralWatcher::GenericLiteralWatcher(Model* model)

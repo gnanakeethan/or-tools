@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -27,7 +27,6 @@
 #include <cstdio>
 
 #include "ortools/base/commandlineflags.h"
-#include "ortools/base/commandlineflags.h"
 #include "ortools/base/integral_types.h"
 #include "ortools/base/logging.h"
 #include "ortools/base/stringprintf.h"
@@ -38,8 +37,7 @@ DEFINE_int32(
     size, 0,
     "Size of the problem. If equal to 0, will test several increasing sizes.");
 
-static const int kBestSolutions[] = {0,   1,   3,   6,   11,  17,  25,
-                                     34,  44,  55,  72,  85,
+static const int kBestSolutions[] = {0, 1, 3, 6, 11, 17, 25, 34, 44, 55, 72, 85,
                                      // just for the optimistics ones, the rest:
                                      106, 127, 151, 177, 199, 216, 246};
 
@@ -94,7 +92,7 @@ void GolombRuler(int size) {
 }  // namespace operations_research
 
 int main(int argc, char** argv) {
-  gflags::ParseCommandLineFlags( &argc, &argv, true);
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
   if (FLAGS_size != 0) {
     operations_research::GolombRuler(FLAGS_size);
   } else {
@@ -102,5 +100,5 @@ int main(int argc, char** argv) {
       operations_research::GolombRuler(n);
     }
   }
-  return 0;
+  return EXIT_SUCCESS;
 }

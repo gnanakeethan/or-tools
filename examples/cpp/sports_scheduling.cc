@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -10,7 +10,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 
 // Sports scheduling problem.
 //
@@ -56,7 +55,6 @@
 //
 // Usage: run this with --helpshort for a short usage manual.
 
-#include "ortools/base/commandlineflags.h"
 #include "ortools/base/commandlineflags.h"
 #include "ortools/base/integral_types.h"
 #include "ortools/base/logging.h"
@@ -401,5 +399,5 @@ int main(int argc, char** argv) {
   CHECK_GE(FLAGS_num_teams, 2) << "At least 2 teams";
   CHECK_LT(FLAGS_num_teams, 16) << "The model does not scale beyond 14 teams";
   operations_research::SportsScheduling(FLAGS_num_teams);
-  return 0;
+  return EXIT_SUCCESS;
 }

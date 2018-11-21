@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -10,7 +10,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 
 // Basic utility functions on Fractional or row/column of Fractional.
 
@@ -124,12 +123,27 @@ Fractional PreciseScalarProduct(const DenseRowOrColumn& u,
   return sum.Value();
 }
 
+// Computes a scalar product for entries with index not greater than max_index.
+template <class DenseRowOrColumn>
+Fractional PartialScalarProduct(const DenseRowOrColumn& u,
+                                const SparseColumn& v, int max_index) {
+  Fractional sum(0.0);
+  for (const SparseColumn::Entry e : v) {
+    if (e.row().value() >= max_index) {
+      return sum;
+    }
+    sum += u[typename DenseRowOrColumn::IndexType(e.row().value())] *
+           e.coefficient();
+  }
+  return sum;
+}
+
 // Returns the norm^2 (sum of the square of the entries) of the given column.
 // The precise version uses KahanSum and are about two times slower.
 Fractional SquaredNorm(const SparseColumn& v);
-Fractional SquaredNorm(const DenseColumn& v);
+Fractional SquaredNorm(const DenseColumn& column);
 Fractional PreciseSquaredNorm(const SparseColumn& v);
-Fractional PreciseSquaredNorm(const DenseColumn& v);
+Fractional PreciseSquaredNorm(const DenseColumn& column);
 Fractional PreciseSquaredNorm(const ScatteredColumn& v);
 
 // Returns the maximum of the |coefficients| of 'v'.

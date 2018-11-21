@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -22,12 +22,14 @@ namespace operations_research {
   return file::SetContents(file_name, content, file::Defaults());
 }
 
-::util::Status FileGetContents(absl::string_view file_name, std::string* output) {
+::util::Status FileGetContents(absl::string_view file_name,
+                               std::string* output) {
   return file::GetContents(file_name, output, file::Defaults());
 }
 
-bool PortableTemporaryFile(const char* directory_prefix, std::string* filename_out) {
-    return false;
+bool PortableTemporaryFile(const char* directory_prefix,
+                           std::string* filename_out) {
+  return false;
 }
 
 ::util::Status DeleteFile(absl::string_view file_name) {

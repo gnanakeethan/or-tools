@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -37,15 +37,14 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "ortools/base/commandlineflags.h"
+#include "examples/cpp/jobshop.h"
+#include "ortools/base/bitmap.h"
 #include "ortools/base/commandlineflags.h"
 #include "ortools/base/integral_types.h"
 #include "ortools/base/logging.h"
 #include "ortools/base/stringprintf.h"
-#include "ortools/base/bitmap.h"
 #include "ortools/constraint_solver/constraint_solver.h"
 #include "ortools/constraint_solver/constraint_solveri.h"
-#include "examples/cpp/jobshop.h"
 
 DEFINE_string(
     data_file, "",
@@ -223,5 +222,5 @@ int main(int argc, char** argv) {
   operations_research::JobShopData data;
   data.Load(FLAGS_data_file);
   operations_research::JobshopLs(data);
-  return 0;
+  return EXIT_SUCCESS;
 }

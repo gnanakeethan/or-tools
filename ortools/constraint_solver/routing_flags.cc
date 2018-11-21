@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -130,8 +130,8 @@ void SetFirstSolutionStrategyFromFlags(RoutingSearchParameters* parameters) {
           {"DefaultStrategy", FirstSolutionStrategy::FIRST_UNBOUND_MIN_VALUE},
           {"", FirstSolutionStrategy::FIRST_UNBOUND_MIN_VALUE}};
   FirstSolutionStrategy::Value strategy;
-  if (FindCopy(first_solution_string_to_parameters,
-               FLAGS_routing_first_solution, &strategy)) {
+  if (gtl::FindCopy(first_solution_string_to_parameters,
+                    FLAGS_routing_first_solution, &strategy)) {
     parameters->set_first_solution_strategy(strategy);
   }
   parameters->set_use_filtered_first_solution_strategy(

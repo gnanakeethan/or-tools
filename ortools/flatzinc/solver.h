@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -107,7 +107,7 @@ class Solver {
   int64 StoredValue(int solution_index, IntegerVariable* var) {
     CHECK_GE(solution_index, 0);
     CHECK_LT(solution_index, stored_values_.size());
-    CHECK(ContainsKey(stored_values_[solution_index], var));
+    CHECK(gtl::ContainsKey(stored_values_[solution_index], var));
     return stored_values_[solution_index][var];
   }
 

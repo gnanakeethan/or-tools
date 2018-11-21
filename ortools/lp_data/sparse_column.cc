@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -54,8 +54,8 @@ void RandomAccessSparseColumn::PopulateFromSparseColumn(
   }
 }
 
-void RandomAccessSparseColumn::PopulateSparseColumn(SparseColumn* sparse_column)
-    const {
+void RandomAccessSparseColumn::PopulateSparseColumn(
+    SparseColumn* sparse_column) const {
   RETURN_IF_NULL(sparse_column);
 
   sparse_column->Clear();

@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -10,7 +10,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 
 #include "ortools/glop/lp_solver.h"
 
@@ -24,6 +23,8 @@
 #include "ortools/base/timer.h"
 
 #include "ortools/base/join.h"
+#include "ortools/base/memory.h"
+#include "ortools/base/stringprintf.h"
 #include "ortools/base/strutil.h"
 #include "ortools/glop/preprocessor.h"
 #include "ortools/glop/status.h"
@@ -88,8 +89,8 @@ void DumpLinearProgramIfRequiredByFlags(const LinearProgram& linear_program,
   }
   const int file_num =
       FLAGS_lp_dump_file_number >= 0 ? FLAGS_lp_dump_file_number : num;
-  StringAppendF(&filename, "-%06d.pb", file_num);
-  const std::string filespec = StrCat(FLAGS_lp_dump_dir, "/", filename);
+  absl::StrAppendFormat(&filename, "-%06d.pb", file_num);
+  const std::string filespec = absl::StrCat(FLAGS_lp_dump_dir, "/", filename);
   MPModelProto proto;
   LinearProgramToMPModelProto(linear_program, &proto);
   const ProtoWriteFormat write_format = FLAGS_lp_dump_binary_file
@@ -173,11 +174,13 @@ ProblemStatus LPSolver::SolveWithTimeLimit(const LinearProgram& lp,
   current_linear_program_.PopulateFromLinearProgram(lp);
 
   // Preprocess.
-  MainLpPreprocessor preprocessor;
-  preprocessor.SetParameters(parameters_);
+  MainLpPreprocessor preprocessor(&parameters_);
   preprocessor.SetTimeLimit(time_limit);
 
   const bool postsolve_is_needed = preprocessor.Run(&current_linear_program_);
+
+  VLOG(1) << "Presolved problem: "
+          << current_linear_program_.GetDimensionString();
 
   // At this point, we need to initialize a ProblemSolution with the correct
   // size and status.
@@ -193,7 +196,17 @@ ProblemStatus LPSolver::SolveWithTimeLimit(const LinearProgram& lp,
   }
 
   if (postsolve_is_needed) preprocessor.RecoverSolution(&solution);
-  return LoadAndVerifySolution(lp, solution);
+  const ProblemStatus status = LoadAndVerifySolution(lp, solution);
+
+  // LOG some statistics that can be parsed by our benchmark script.
+  VLOG(1) << "status: " << status;
+  VLOG(1) << "objective: " << GetObjectiveValue();
+  VLOG(1) << "iterations: " << GetNumberOfSimplexIterations();
+  VLOG(1) << "time: " << time_limit->GetElapsedTime();
+  VLOG(1) << "deterministic_time: "
+          << time_limit->GetElapsedDeterministicTime();
+
+  return status;
 }
 
 void LPSolver::Clear() {
@@ -229,7 +242,7 @@ void LPSolver::SetInitialBasis(
     }
   }
   if (revised_simplex_ == nullptr) {
-    revised_simplex_.reset(new RevisedSimplex());
+    revised_simplex_ = absl::make_unique<RevisedSimplex>();
   }
   revised_simplex_->LoadStateForNextSolve(state);
   if (parameters_.use_preprocessing()) {
@@ -276,11 +289,11 @@ ProblemStatus LPSolver::LoadAndVerifySolution(const LinearProgram& lp,
   const Fractional primal_objective_value = ComputeObjective(lp);
   const Fractional dual_objective_value = ComputeDualObjective(lp);
   VLOG(1) << "Primal objective (before moving primal/dual values) = "
-          << StringPrintf("%.15E",
-                          ProblemObjectiveValue(lp, primal_objective_value));
+          << absl::StrFormat("%.15E",
+                             ProblemObjectiveValue(lp, primal_objective_value));
   VLOG(1) << "Dual objective (before moving primal/dual values) = "
-          << StringPrintf("%.15E",
-                          ProblemObjectiveValue(lp, dual_objective_value));
+          << absl::StrFormat("%.15E",
+                             ProblemObjectiveValue(lp, dual_objective_value));
 
   // Eventually move the primal/dual values inside their bounds.
   if (status == ProblemStatus::OPTIMAL &&
@@ -292,11 +305,10 @@ ProblemStatus LPSolver::LoadAndVerifySolution(const LinearProgram& lp,
   // The reported objective to the user.
   problem_objective_value_ = ProblemObjectiveValue(lp, ComputeObjective(lp));
   VLOG(1) << "Primal objective (after moving primal/dual values) = "
-          << StringPrintf("%.15E", problem_objective_value_);
+          << absl::StrFormat("%.15E", problem_objective_value_);
 
   ComputeReducedCosts(lp);
   ComputeConstraintActivities(lp);
-
 
   // These will be set to true if the associated "infeasibility" is too large.
   //
@@ -450,7 +462,6 @@ int LPSolver::GetNumberOfSimplexIterations() const {
   return num_revised_simplex_iterations_;
 }
 
-
 double LPSolver::DeterministicTime() const {
   return revised_simplex_ == nullptr ? 0.0
                                      : revised_simplex_->DeterministicTime();
@@ -514,7 +525,7 @@ void LPSolver::RunRevisedSimplexIfNeeded(ProblemSolution* solution,
   current_linear_program_.ClearTransposeMatrix();
   if (solution->status != ProblemStatus::INIT) return;
   if (revised_simplex_ == nullptr) {
-    revised_simplex_.reset(new RevisedSimplex());
+    revised_simplex_ = absl::make_unique<RevisedSimplex>();
   }
   revised_simplex_->SetParameters(parameters_);
   if (revised_simplex_->Solve(current_linear_program_, time_limit).ok()) {
@@ -541,7 +552,6 @@ void LPSolver::RunRevisedSimplexIfNeeded(ProblemSolution* solution,
     solution->status = ProblemStatus::ABNORMAL;
   }
 }
-
 
 namespace {
 
@@ -743,8 +753,8 @@ void LPSolver::ComputeConstraintActivities(const LinearProgram& lp) {
   DCHECK_EQ(num_cols, primal_values_.size());
   constraint_activities_.assign(num_rows, 0.0);
   for (ColIndex col(0); col < num_cols; ++col) {
-    lp.GetSparseColumn(col)
-        .AddMultipleToDenseVector(primal_values_[col], &constraint_activities_);
+    lp.GetSparseColumn(col).AddMultipleToDenseVector(primal_values_[col],
+                                                     &constraint_activities_);
   }
 }
 

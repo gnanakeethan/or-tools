@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -20,6 +20,8 @@
 #define strtof strtod
 #define strtoll _strtoi64
 #endif  // _MSC_VER
+
+namespace strings {
 
 bool safe_strtof(const char* str, float* value) {
   char* endptr;
@@ -67,5 +69,7 @@ bool safe_strto32(const std::string& str, int* value) {
   *value = strtol(str.c_str(), &endptr, /*base=*/10);  // NOLINT
   return *endptr == '\0' && str[0] != '\0';
 }
+
+}  // namespace strings
 #undef strtof
 #undef strtoll

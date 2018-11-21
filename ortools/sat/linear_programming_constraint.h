@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -33,20 +33,35 @@ namespace sat {
 
 // One linear constraint on a set of Integer variables.
 // Important: there should be no duplicate variables.
+//
+// We also assume that we never have integer overflow when evaluating such
+// constraint. This should be enforced by the checker for user given
+// cosntraints, and we must enforce it ourselves for the newly created
+// constraint. We requires:
+//  -  sum_i max(0, max(c_i * lb_i, c_i * ub_i)) < kMaxIntegerValue.
+//  -  sum_i min(0, min(c_i * lb_i, c_i * ub_i)) > kMinIntegerValue
+// so that in whichever order we compute the sum, we have no overflow. Note
+// that this condition invoves the bounds of the variables.
+//
+// TODO(user): Add DCHECKs for the no-overflow property? but we need access
+// to the variable bounds.
 struct LinearConstraint {
-  double lb;
-  double ub;
+  IntegerValue lb;
+  IntegerValue ub;
   std::vector<IntegerVariable> vars;
-  std::vector<double> coeffs;
+  std::vector<IntegerValue> coeffs;
 
   std::string DebugString() const {
     std::string result;
-    const double kInfinity = std::numeric_limits<double>::infinity();
-    if (lb != -kInfinity) StrAppend(&result, lb, " <= ");
-    for (int i = 0; i < vars.size(); ++i) {
-      StrAppend(&result, coeffs[i], "*[", vars[i].value(), "] ");
+    if (lb.value() > kMinIntegerValue) {
+      absl::StrAppend(&result, lb.value(), " <= ");
     }
-    if (ub != kInfinity) StrAppend(&result, "<= ", ub);
+    for (int i = 0; i < vars.size(); ++i) {
+      absl::StrAppend(&result, coeffs[i].value(), "*[", vars[i].value(), "] ");
+    }
+    if (ub.value() < kMaxIntegerValue) {
+      absl::StrAppend(&result, "<= ", ub.value());
+    }
     return result;
   }
 };
@@ -58,13 +73,19 @@ struct LinearConstraint {
 // duplicates might be more efficient. Change if required.
 class LinearConstraintBuilder {
  public:
-  LinearConstraintBuilder(double lb, double ub) : lb_(lb), ub_(ub) {}
+  // We support "sticky" kMinIntegerValue for lb and kMaxIntegerValue for ub
+  // for one-sided constraints.
+  LinearConstraintBuilder(const Model* model, IntegerValue lb, IntegerValue ub)
+      : assignment_(model->Get<Trail>()->Assignment()),
+        encoder_(*model->Get<IntegerEncoder>()),
+        lb_(lb),
+        ub_(ub) {}
 
   int size() const { return terms_.size(); }
   bool IsEmpty() const { return terms_.empty(); }
 
   // Adds var * coeff to the constraint.
-  void AddTerm(IntegerVariable var, double coeff) {
+  void AddTerm(IntegerVariable var, IntegerValue coeff) {
     // We can either add var or NegationOf(var), and we always choose the
     // positive one.
     if (VariableIsPositive(var)) {
@@ -79,18 +100,26 @@ class LinearConstraintBuilder {
 
   // Add literal * coeff to the constaint. Returns false and do nothing if the
   // given literal didn't have an integer view.
-  bool AddLiteralTerm(Literal lit, double coeff,
-                      const IntegerEncoder& encoder) MUST_USE_RESULT {
-    bool has_direct_view = encoder.GetLiteralView(lit) != kNoIntegerVariable;
+  MUST_USE_RESULT bool AddLiteralTerm(Literal lit, IntegerValue coeff) {
+    if (assignment_.LiteralIsTrue(lit)) {
+      if (lb_ > kMinIntegerValue) lb_ -= coeff;
+      if (ub_ < kMaxIntegerValue) ub_ -= coeff;
+      return true;
+    }
+    if (assignment_.LiteralIsFalse(lit)) {
+      return true;
+    }
+
+    bool has_direct_view = encoder_.GetLiteralView(lit) != kNoIntegerVariable;
     bool has_opposite_view =
-        encoder.GetLiteralView(lit.Negated()) != kNoIntegerVariable;
+        encoder_.GetLiteralView(lit.Negated()) != kNoIntegerVariable;
 
     // If a literal has both views, we want to always keep the same
     // representative: the smallest IntegerVariable. Note that AddTerm() will
     // also make sure to use the associated positive variable.
     if (has_direct_view && has_opposite_view) {
-      if (encoder.GetLiteralView(lit) <=
-          encoder.GetLiteralView(lit.Negated())) {
+      if (encoder_.GetLiteralView(lit) <=
+          encoder_.GetLiteralView(lit.Negated())) {
         has_direct_view = true;
         has_opposite_view = false;
       } else {
@@ -99,13 +128,13 @@ class LinearConstraintBuilder {
       }
     }
     if (has_direct_view) {
-      AddTerm(encoder.GetLiteralView(lit), coeff);
+      AddTerm(encoder_.GetLiteralView(lit), coeff);
       return true;
     }
     if (has_opposite_view) {
-      AddTerm(encoder.GetLiteralView(lit.Negated()), -coeff);
-      lb_ -= coeff;
-      ub_ -= coeff;
+      AddTerm(encoder_.GetLiteralView(lit.Negated()), -coeff);
+      if (lb_ > kMinIntegerValue) lb_ -= coeff;
+      if (ub_ < kMaxIntegerValue) ub_ -= coeff;
       return true;
     }
     return false;
@@ -123,10 +152,12 @@ class LinearConstraintBuilder {
   }
 
  private:
-  double lb_;
-  double ub_;
-  double offset_;
-  std::map<IntegerVariable, double> terms_;
+  const VariablesAssignment& assignment_;
+  const IntegerEncoder& encoder_;
+  IntegerValue lb_;
+  IntegerValue ub_;
+  IntegerValue offset_;
+  std::map<IntegerVariable, IntegerValue> terms_;
 };
 
 // A "cut" generator on a set of IntegerVariable. The generate_cuts() function
@@ -157,11 +188,11 @@ struct CutGenerator {
 // inequality constraints, call RegisterWith() to finalize the set of linear
 // constraints. A linear constraint a x + b y + c z <= k, with x y z
 // IntegerVariables, can be created by calling:
-// auto ct = lp->CreateNewConstraint(-std::numeric_limits<double>::infinity(),
-//                                   k);
+// auto ct = lp->CreateNewConstraint(kMinIntegerValue, k);
 // lp->SetCoefficient(ct, x, a);
 // lp->SetCoefficient(ct, y, b);
 // lp->SetCoefficient(ct, z, c);
+// lp->RegisterWith();  // No new modifications allowed after this.
 //
 // Note that this constraint works with double floating-point numbers, so one
 // could be worried that it may filter too much in case of precision issues.
@@ -177,7 +208,7 @@ class LinearProgrammingConstraint : public PropagatorInterface,
   explicit LinearProgrammingConstraint(Model* model);
 
   // User API, see header description.
-  ConstraintIndex CreateNewConstraint(double lb, double ub);
+  ConstraintIndex CreateNewConstraint(IntegerValue lb, IntegerValue ub);
 
   // This function only accept positive integer variable. It is easy enough to
   // always satify this precondition by calling it with a negated variable and
@@ -188,11 +219,11 @@ class LinearProgrammingConstraint : public PropagatorInterface,
   // (constraint, variable) pair will overwrite coefficients where accumulating
   // them might be desired, this is a common mistake, change API.
   void SetCoefficient(ConstraintIndex ct, IntegerVariable ivar,
-                      double coefficient);
+                      IntegerValue coefficient);
 
   // Set the coefficient of the variable in the objective. Calling it twice will
   // overwrite the previous value.
-  void SetObjectiveCoefficient(IntegerVariable ivar, double coeff);
+  void SetObjectiveCoefficient(IntegerVariable ivar, IntegerValue coeff);
 
   // The main objective variable should be equal to the linear sum of
   // the arguments passed to SetObjectiveCoefficient().
@@ -271,9 +302,49 @@ class LinearProgrammingConstraint : public PropagatorInterface,
   // both infeasibility and bounds deductions.
   void FillReducedCostsReason();
 
+  // Use the dual optimal lp values to compute an EXACT lower bound on the
+  // objective. Fills its reason and perform reduced cost strenghtening.
+  // Returns the exact objective lower bound.
+  //
+  // TODO(user): Split into subfunctions.
+  IntegerValue ExactLpReasonning();
+
   // Same as FillReducedCostReason() but for the case of a DUAL_UNBOUNDED
   // problem. This exploit the dual ray as a reason for the primal infeasiblity.
   void FillDualRayReason();
+
+  // Same as FillDualRayReason() but perform the computation EXACTLY. Returns
+  // false in the case that the problem is not provably infeasible with exact
+  // computations, true otherwise.
+  bool FillExactDualRayReason();
+
+  // From a set of row multipliers (at LP scale), scale them back to the CP
+  // world and then make them integer (eventually multiplying them by a new
+  // scaling factor returned in *scaling).
+  //
+  // Then computes from this linear combination of the integer rows of the LP a
+  // new constraint of the form "sum terms <= upper_bound". Note that whatever
+  // lp_multipliers are given, the constraint will always be an exact valid
+  // constraint of the problem.
+  //
+  // Returns false if we encountered any integer overflow.
+  bool ComputeNewLinearConstraint(
+      bool take_objective_into_account,  // For the scaling.
+      const glop::DenseColumn& dense_lp_multipliers, glop::Fractional* scaling,
+      gtl::ITIVector<glop::ColIndex, IntegerValue>* dense_terms,
+      IntegerValue* upper_bound) const;
+
+  // Shortcut for an integer linear expression type.
+  using LinearExpression = std::vector<std::pair<glop::ColIndex, IntegerValue>>;
+
+  // Compute the implied lower bound of the given linear expression using the
+  // current variable bound. Return kMinIntegerValue in case of overflow.
+  IntegerValue GetImpliedLowerBound(const LinearExpression& terms) const;
+
+  // Fills integer_reason_ with the reason for the implied lower bound of the
+  // given linear expression. We relax the reason if we have some slack.
+  void SetImpliedLowerBoundReason(const LinearExpression& terms,
+                                  IntegerValue slack);
 
   // Fills the deductions vector with reduced cost deductions that can be made
   // from the current state of the LP solver. The given delta should be the
@@ -299,6 +370,34 @@ class LinearProgrammingConstraint : public PropagatorInterface,
   // Same but at the LP scale.
   static const double kLpEpsilon;
 
+  // Initial problem in integer form.
+  // We always sort the inner vectors by increasing glop::ColIndex.
+  struct LinearConstraintInternal {
+    IntegerValue lb;
+    IntegerValue ub;
+    LinearExpression terms;
+  };
+  LinearExpression integer_objective_;
+  std::vector<LinearConstraintInternal> integer_lp_;
+
+  // Custom Hash/Equiv function on a LinearConstraintInternal to detect
+  // constraint with exactly the same terms (once sorted).
+  struct TermsHash {
+    std::size_t operator()(const LinearConstraintInternal& ct) const {
+      size_t hash = 0;
+      for (const std::pair<glop::ColIndex, IntegerValue>& term : ct.terms) {
+        hash = util_hash::Hash(term.first.value(), term.second.value(), hash);
+      }
+      return hash;
+    }
+  };
+  struct TermsEquiv {
+    bool operator()(const LinearConstraintInternal& a,
+                    const LinearConstraintInternal& b) const {
+      return a.terms == b.terms;
+    }
+  };
+
   // Underlying LP solver API.
   glop::LinearProgram lp_data_;
   glop::RevisedSimplex simplex_;
@@ -318,7 +417,6 @@ class LinearProgrammingConstraint : public PropagatorInterface,
   // then we will switch the objective between feasibility and optimization.
   bool objective_is_defined_ = false;
   IntegerVariable objective_cp_;
-  std::vector<std::pair<glop::ColIndex, double>> objective_lp_;
 
   // Singletons from Model.
   const SatParameters& sat_parameters_;
@@ -334,6 +432,7 @@ class LinearProgrammingConstraint : public PropagatorInterface,
 
   std::vector<IntegerLiteral> integer_reason_;
   std::vector<IntegerLiteral> deductions_;
+  std::vector<IntegerLiteral> deductions_reason_;
 
   // Last OPTIMAL solution found by a call to the underlying LP solver.
   // On IncrementalPropagate(), if the bound updates do not invalidate this
@@ -361,13 +460,12 @@ class LinearProgrammingConstraint : public PropagatorInterface,
 };
 
 // A class that stores which LP propagator is associated to each variable.
-// We need to give the hash_map a name so it can be used as a singleton
-// in our model.
+// We need to give the hash_map a name so it can be used as a singleton in our
+// model.
 //
 // Important: only positive variable do appear here.
 class LinearProgrammingDispatcher
-    : public std::unordered_map<IntegerVariable,
-                                 LinearProgrammingConstraint*> {
+    : public std::unordered_map<IntegerVariable, LinearProgrammingConstraint*> {
  public:
   explicit LinearProgrammingDispatcher(Model* model) {}
 };

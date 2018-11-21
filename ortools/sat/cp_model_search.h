@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -43,6 +43,24 @@ std::function<LiteralIndex()> InstrumentSearchStrategy(
     const CpModelProto& cp_model_proto,
     const std::vector<IntegerVariable>& variable_mapping,
     const std::function<LiteralIndex()>& instrumented_strategy, Model* model);
+
+// Returns a different parameters depending on the given worker_id.
+// This assumes that worker will get an id in [0, num_workers).
+//
+// TODO(user): Find a way to know how many search heuristics there are,
+// and how many threads to pass to LNS with an optimization model.
+SatParameters DiversifySearchParameters(const SatParameters& params,
+                                        const CpModelProto& cp_model,
+                                        const int worker_id, std::string* name);
+
+// This method updates a given response with a new incoming response.
+// It returns true if the response is strictly improving upon the 'best' one.
+//
+// TODO(user): Separate in two, 1 method for maintaining the best
+// intermediate solution, and one for cumulating the search statistics in
+// a final solution.
+bool MergeOptimizationSolution(const CpSolverResponse& response, bool maximize,
+                               CpSolverResponse* best);
 
 }  // namespace sat
 }  // namespace operations_research

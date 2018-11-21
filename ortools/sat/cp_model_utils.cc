@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -12,6 +12,9 @@
 // limitations under the License.
 
 #include "ortools/sat/cp_model_utils.h"
+
+#include <unordered_set>
+#include "ortools/base/stl_util.h"
 
 namespace operations_research {
 namespace sat {
@@ -33,6 +36,9 @@ void AddReferencesUsedByConstraint(const ConstraintProto& ct,
       break;
     case ConstraintProto::ConstraintCase::kBoolAnd:
       AddIndices(ct.bool_and().literals(), &output->literals);
+      break;
+    case ConstraintProto::ConstraintCase::kAtMostOne:
+      AddIndices(ct.at_most_one().literals(), &output->literals);
       break;
     case ConstraintProto::ConstraintCase::kBoolXor:
       AddIndices(ct.bool_xor().literals(), &output->literals);
@@ -69,7 +75,7 @@ void AddReferencesUsedByConstraint(const ConstraintProto& ct,
       AddIndices(ct.element().vars(), &output->variables);
       break;
     case ConstraintProto::ConstraintCase::kCircuit:
-      AddIndices(ct.circuit().literals(), &output->variables);
+      AddIndices(ct.circuit().literals(), &output->literals);
       break;
     case ConstraintProto::ConstraintCase::kRoutes:
       AddIndices(ct.routes().literals(), &output->literals);
@@ -135,6 +141,9 @@ void ApplyToAllLiteralIndices(const std::function<void(int*)>& f,
     case ConstraintProto::ConstraintCase::kBoolAnd:
       APPLY_TO_REPEATED_FIELD(bool_and, literals);
       break;
+    case ConstraintProto::ConstraintCase::kAtMostOne:
+      APPLY_TO_REPEATED_FIELD(at_most_one, literals);
+      break;
     case ConstraintProto::ConstraintCase::kBoolXor:
       APPLY_TO_REPEATED_FIELD(bool_xor, literals);
       break;
@@ -189,6 +198,8 @@ void ApplyToAllVariableIndices(const std::function<void(int*)>& f,
     case ConstraintProto::ConstraintCase::kBoolOr:
       break;
     case ConstraintProto::ConstraintCase::kBoolAnd:
+      break;
+    case ConstraintProto::ConstraintCase::kAtMostOne:
       break;
     case ConstraintProto::ConstraintCase::kBoolXor:
       break;
@@ -268,6 +279,8 @@ void ApplyToAllIntervalIndices(const std::function<void(int*)>& f,
       break;
     case ConstraintProto::ConstraintCase::kBoolAnd:
       break;
+    case ConstraintProto::ConstraintCase::kAtMostOne:
+      break;
     case ConstraintProto::ConstraintCase::kBoolXor:
       break;
     case ConstraintProto::ConstraintCase::kIntDiv:
@@ -320,12 +333,15 @@ void ApplyToAllIntervalIndices(const std::function<void(int*)>& f,
 #undef APPLY_TO_SINGULAR_FIELD
 #undef APPLY_TO_REPEATED_FIELD
 
-std::string ConstraintCaseName(ConstraintProto::ConstraintCase constraint_case) {
+std::string ConstraintCaseName(
+    ConstraintProto::ConstraintCase constraint_case) {
   switch (constraint_case) {
     case ConstraintProto::ConstraintCase::kBoolOr:
       return "kBoolOr";
     case ConstraintProto::ConstraintCase::kBoolAnd:
       return "kBoolAnd";
+    case ConstraintProto::ConstraintCase::kAtMostOne:
+      return "kAtMostOne";
     case ConstraintProto::ConstraintCase::kBoolXor:
       return "kBoolXor";
     case ConstraintProto::ConstraintCase::kIntDiv:
@@ -369,6 +385,24 @@ std::string ConstraintCaseName(ConstraintProto::ConstraintCase constraint_case) 
     case ConstraintProto::ConstraintCase::CONSTRAINT_NOT_SET:
       return "kEmpty";
   }
+}
+
+std::vector<int> UsedVariables(const ConstraintProto& ct) {
+  IndexReferences references;
+  AddReferencesUsedByConstraint(ct, &references);
+
+  std::vector<int> used_variables;
+  for (const int var : references.variables) {
+    used_variables.push_back(PositiveRef(var));
+  }
+  for (const int lit : references.literals) {
+    used_variables.push_back(PositiveRef(lit));
+  }
+  for (const int lit : ct.enforcement_literal()) {
+    used_variables.push_back(PositiveRef(lit));
+  }
+  gtl::STLSortAndRemoveDuplicates(&used_variables);
+  return used_variables;
 }
 
 }  // namespace sat

@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -66,9 +66,6 @@ std::function<LiteralIndex()> SatSolverHeuristic(Model* model);
 std::function<LiteralIndex()> ExploitIntegerLpSolution(
     std::function<LiteralIndex()> heuristic, Model* model);
 
-// Always returns kNoLiteralIndex. Useful for compositions.
-std::function<LiteralIndex()> NullSearch();
-
 // A restart policy that restarts every k failures.
 std::function<bool()> RestartEveryKFailures(int k, SatSolver* solver);
 
@@ -99,16 +96,29 @@ SatSolver::Status SolveIntegerProblemWithLazyEncoding(
     const std::vector<Literal>& assumptions,
     const std::function<LiteralIndex()>& next_decision, Model* model);
 
-// Shortcut for SolveIntegerProblemWithLazyEncoding() when there is no
-// assumption and we consider all variables in their index order for the next
-// search decision.
-SatSolver::Status SolveIntegerProblemWithLazyEncoding(Model* model);
-
 // Solves a problem with the given heuristics.
 // heuristics[i] will be used with restart_policies[i] only.
 SatSolver::Status SolveProblemWithPortfolioSearch(
     std::vector<std::function<LiteralIndex()>> decision_policies,
     std::vector<std::function<bool()>> restart_policies, Model* model);
+
+// Shortcut for SolveIntegerProblemWithLazyEncoding() when there is no
+// assumption and we consider all variables in their index order for the next
+// search decision.
+SatSolver::Status SolveIntegerProblemWithLazyEncoding(Model* model);
+
+// Store relationship between the CpSolverResponse objective and the internal
+// IntegerVariable the solver tries to minimize.
+struct ObjectiveSynchronizationHelper {
+  double scaling_factor = 1.0;
+  double offset = 0.0;
+  IntegerVariable objective_var = kNoIntegerVariable;
+  std::function<double()> get_external_bound = nullptr;
+
+  int64 UnscaledObjective(double value) const {
+    return static_cast<int64>(std::round(value / scaling_factor - offset));
+  }
+};
 
 }  // namespace sat
 }  // namespace operations_research

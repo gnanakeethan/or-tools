@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -47,11 +47,12 @@ class IntegralSolver {
   // TODO(user): Change the API to accept a partial solution instead since the
   // underlying solver supports it.
   BopSolveStatus Solve(const glop::LinearProgram& linear_problem,
-                       const glop::DenseRow& initial_solution)
+                       const glop::DenseRow& user_provided_initial_solution)
       MUST_USE_RESULT;
-  BopSolveStatus SolveWithTimeLimit(const glop::LinearProgram& linear_problem,
-                                    const glop::DenseRow& initial_solution,
-                                    TimeLimit* time_limit) MUST_USE_RESULT;
+  BopSolveStatus SolveWithTimeLimit(
+      const glop::LinearProgram& linear_problem,
+      const glop::DenseRow& user_provided_initial_solution,
+      TimeLimit* time_limit) MUST_USE_RESULT;
 
   // Returns the objective value of the solution with its offset.
   glop::Fractional objective_value() const { return objective_value_; }

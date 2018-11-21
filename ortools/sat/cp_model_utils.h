@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,9 +19,9 @@
 #include <string>
 #include <vector>
 
+#include <unordered_set>
 #include "ortools/base/integral_types.h"
 #include "ortools/base/logging.h"
-#include <unordered_set>
 #include "ortools/sat/cp_model.pb.h"
 #include "ortools/util/sorted_interval_list.h"
 
@@ -68,6 +68,9 @@ void ApplyToAllIntervalIndices(const std::function<void(int*)>& function,
 // Note(user): There is no such function in the proto API as of 16/01/2017.
 std::string ConstraintCaseName(ConstraintProto::ConstraintCase constraint_case);
 
+// Returns the sorted list of variables used by a constraint.
+std::vector<int> UsedVariables(const ConstraintProto& ct);
+
 // Returns true if a proto.domain() contain the given value.
 // The domain is expected to be encoded as a sorted disjoint interval list.
 template <typename ProtoWithDomain>
@@ -89,6 +92,10 @@ void FillDomain(const std::vector<ClosedInterval>& domain,
     proto->add_domain(interval.end);
   }
 }
+template <typename ProtoWithDomain>
+void FillDomainInProto(const Domain& domain, ProtoWithDomain* proto) {
+  FillDomain(domain.intervals(), proto);
+}
 
 // Extract a sorted interval list from the domain field of a proto.
 template <typename ProtoWithDomain>
@@ -99,6 +106,10 @@ std::vector<ClosedInterval> ReadDomain(const ProtoWithDomain& proto) {
   }
   CHECK(IntervalsAreSortedAndDisjoint(result));
   return result;
+}
+template <typename ProtoWithDomain>
+Domain ReadDomainFromProto(const ProtoWithDomain& proto) {
+  return Domain::FromIntervals(ReadDomain(proto));
 }
 
 // Returns the list of values in a given domain.

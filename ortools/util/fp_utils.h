@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -10,7 +10,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 
 // Utility functions on IEEE floating-point numbers.
 // Implemented on float, double, and long double.
@@ -24,7 +23,7 @@
 #define OR_TOOLS_UTIL_FP_UTILS_H_
 
 #if defined(_MSC_VER)
-#pragma fenv_access (on) // NOLINT
+#pragma fenv_access(on)  // NOLINT
 #else
 #include <fenv.h>  // NOLINT
 #endif
@@ -60,7 +59,7 @@ namespace operations_research {
 
 class ScopedFloatingPointEnv {
  public:
-  ScopedFloatingPointEnv()  {
+  ScopedFloatingPointEnv() {
 #if defined(_MSC_VER)
     // saved_control_ = _controlfp(0, 0);
 #elif defined(ARCH_K8)
@@ -180,7 +179,7 @@ inline bool IsIntegerWithinTolerance(FloatType x, FloatType tolerance) {
 // Given an array of doubles, this computes a positive scaling factor such that
 // the scaled doubles can then be rounded to integers with little or no loss of
 // precision, and so that the L1 norm of these integers is <= max_sum. More
-// precisely, the following formulas will hold:
+// precisely, the following formulas will hold (x[i] is input[i], for brevity):
 // - For all i, |round(factor * x[i]) / factor  - x[i]| <= error * |x[i]|
 // - The sum over i of |round(factor * x[i])| <= max_sum.
 //
@@ -200,7 +199,7 @@ inline bool IsIntegerWithinTolerance(FloatType x, FloatType tolerance) {
 //
 // TODO(user): incorporate the gcd computation here? The issue is that I am
 // not sure if I just do factor /= gcd that round(x * factor) will be the same.
-void GetBestScalingOfDoublesToInt64(const std::vector<double>& x,
+void GetBestScalingOfDoublesToInt64(const std::vector<double>& input,
                                     int64 max_absolute_sum,
                                     double* scaling_factor,
                                     double* max_relative_coeff_error);
@@ -214,7 +213,7 @@ void GetBestScalingOfDoublesToInt64(const std::vector<double>& x,
 // difference between the exact scaled sum and the rounded one. One needs to
 // divide this by scaling_factor to have the maximum absolute error on the
 // original sum.
-void GetBestScalingOfDoublesToInt64(const std::vector<double>& x,
+void GetBestScalingOfDoublesToInt64(const std::vector<double>& input,
                                     const std::vector<double>& lb,
                                     const std::vector<double>& ub,
                                     int64 max_absolute_sum,

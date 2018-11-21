@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -67,8 +67,8 @@ CircuitPropagator::CircuitPropagator(const int num_nodes,
 
     // Tricky: For self-arc, we watch instead when the arc become false.
     const Literal watched_literal = tail == head ? literal.Negated() : literal;
-    int watch_index =
-        FindWithDefault(literal_to_watch_index, watched_literal.Index(), -1);
+    int watch_index = gtl::FindWithDefault(literal_to_watch_index,
+                                           watched_literal.Index(), -1);
     if (watch_index == -1) {
       watch_index = watch_index_to_literal_.size();
       literal_to_watch_index[watched_literal.Index()] = watch_index;

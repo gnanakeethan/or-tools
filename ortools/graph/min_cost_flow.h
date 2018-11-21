@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -10,7 +10,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 
 // An implementation of a cost-scaling push-relabel algorithm for
 // the min-cost flow problem.
@@ -177,8 +176,8 @@
 #include "ortools/base/integral_types.h"
 #include "ortools/base/logging.h"
 #include "ortools/base/macros.h"
-#include "ortools/graph/graph.h"
 #include "ortools/graph/ebert_graph.h"
+#include "ortools/graph/graph.h"
 #include "ortools/util/stats.h"
 #include "ortools/util/zvector.h"
 
@@ -278,10 +277,7 @@ class SimpleMinCostFlow : public MinCostFlowBase {
 
  private:
   typedef ::util::ReverseArcStaticGraph<NodeIndex, ArcIndex> Graph;
-  enum SupplyAdjustment {
-    ADJUST,
-    DONT_ADJUST
-  };
+  enum SupplyAdjustment { ADJUST, DONT_ADJUST };
 
   // Applies the permutation in arc_permutation_ to the given arc index.
   ArcIndex PermutedArc(ArcIndex arc);

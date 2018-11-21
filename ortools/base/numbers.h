@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -18,6 +18,8 @@
 #include "ortools/base/integral_types.h"
 #include "ortools/base/join.h"
 
+namespace strings {
+
 // Convert strings to numerical values.
 // Leading and trailing spaces are allowed.
 // Values may be rounded on over- and underflow.
@@ -28,6 +30,8 @@ bool safe_strtod(const std::string& str, double* value);
 bool safe_strto64(const std::string& str, int64* value);
 bool safe_strto32(const std::string& str, int* value);
 // Converting int to std::string.
-inline std::string SimpleItoa(int i) { return StrCat(i); }
+inline std::string SimpleItoa(int i) { return absl::StrCat(i); }
+
+}  // namespace strings
 
 #endif  // OR_TOOLS_BASE_NUMBERS_H_

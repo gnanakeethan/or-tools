@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -189,7 +189,9 @@ class NodePairSwapActiveOperator : public PathWithPreviousNodesOperator {
 
   bool MakeNextNeighbor(Assignment* delta, Assignment* deltadelta) override;
   bool MakeNeighbor() override;
-  std::string DebugString() const override { return "NodePairSwapActiveOperator"; }
+  std::string DebugString() const override {
+    return "NodePairSwapActiveOperator";
+  }
 
  private:
   void OnNodeInitialization() override;
@@ -216,7 +218,9 @@ class PairNodeSwapActiveOperator : public PathOperator {
 
   bool MakeNextNeighbor(Assignment* delta, Assignment* deltadelta) override;
   bool MakeNeighbor() override;
-  std::string DebugString() const override { return "PairNodeSwapActiveOperator"; }
+  std::string DebugString() const override {
+    return "PairNodeSwapActiveOperator";
+  }
 
  protected:
   bool OnSamePathAsPreviousBase(int64 base_index) override {
