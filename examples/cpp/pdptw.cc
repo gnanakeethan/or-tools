@@ -291,9 +291,9 @@ bool LoadAndSolve(const std::string& pdp_file) {
 
   // Solve pickup and delivery problem.
   const Assignment* assignment = routing.SolveWithParameters(parameters);
-  LOG(INFO) << routing.solver()->LocalSearchProfile();
+//  LOG(INFO) << routing.solver()->LocalSearchProfile();
   if (nullptr != assignment) {
-    LOG(INFO) << "Cost: " << assignment->ObjectiveValue();
+//    LOG(INFO) << "Cost: " << assignment->ObjectiveValue();
     std::cout << VerboseOutput(routing, *assignment, coords, service_times);
     return true;
   }
