@@ -35,7 +35,7 @@ include(CTest)
 if(UNIX)
   # Needed to create python package from the build directory
   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-  option(BUILD_SHARED_LIBS "Build shared libraries(.so)." ON)
+  option(BUILD_SHARED_LIBS "Build shared libraries(.so)." OFF)
 elseif(MSVC)
   # Windows only support static build.
   set(BUILD_SHARED_LIBS OFF)
